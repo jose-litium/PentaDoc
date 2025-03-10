@@ -95,7 +95,6 @@ auto_find_ovpn() {
   if [ ${#ovpn_files[@]} -eq 0 ]; then
     return 1
   fi
-  # Fixed syntax error here: added space before ]
   if [ ${#ovpn_files[@]} -eq 1 ]; then
     echo "${ovpn_files[0]}"
   else
@@ -368,14 +367,48 @@ install_docker_if_needed() {
 docker_deploy_detached() {
   print_separator
   echo "→ Deploying Kali Linux container in detached mode..."
+  install_docker_if_needed || return 1
+  # Lanzamos el contenedor
   sudo docker run -d --name kali_container --shm-size=512m -p 6901:6901 -e VNC_PW=password kasmweb/kali-rolling-desktop:1.16.0
-  echo "→ Container deployed. Access it at: https://172.17.0.2:6901"
+  echo "→ Container deployed in detached mode. Access it at: http://<host-ip>:6901"
+  
+  # Esperamos unos segundos para que el contenedor inicie completamente
+  sleep 5
+
+  echo "→ Creating user 'kasm_user' with password 'password' inside the container..."
+  sudo docker exec kali_container bash -c "
+    apt-get update && \
+    apt-get install -y sudo && \
+    useradd -ms /bin/bash kasm_user && \
+    echo 'kasm_user:password' | chpasswd && \
+    adduser kasm_user sudo
+  "
+  echo "→ User 'kasm_user' created with password 'password'."
 }
 
 docker_deploy_interactive() {
   print_separator
   echo "→ Deploying Kali Linux container in interactive mode..."
-  sudo docker run --rm -it --shm-size=512m -p 6901:6901 -e VNC_PW=password kasmweb/kali-rolling-desktop:1.16.0
+  install_docker_if_needed || return 1
+  # Iniciamos contenedor en modo interactivo
+  sudo docker run --rm -d --name kali_container --shm-size=512m -p 6901:6901 -e VNC_PW=password kasmweb/kali-rolling-desktop:1.16.0
+  echo "→ Container deployed in background. Attaching now..."
+
+  # Esperamos unos segundos para que el contenedor inicie completamente
+  sleep 5
+
+  echo "→ Creating user 'kasm_user' with password 'password' inside the container..."
+  sudo docker exec kali_container bash -c "
+    apt-get update && \
+    apt-get install -y sudo && \
+    useradd -ms /bin/bash kasm_user && \
+    echo 'kasm_user:password' | chpasswd && \
+    adduser kasm_user sudo
+  "
+  echo "→ User 'kasm_user' created with password 'password'."
+
+  # Finalmente abrimos una consola interactiva en el contenedor
+  sudo docker attach kali_container
   echo "→ Container session ended."
 }
 
@@ -423,6 +456,18 @@ docker_deploy_wireless() {
     echo "→ Your public IP is:"
     curl -s ifconfig.me
     echo ""
+    
+    # (Opcional) Creación del usuario en el contenedor también aquí:
+    sleep 5
+    echo "→ Creating user 'kasm_user' with password 'password' inside the container..."
+    sudo docker exec kali_container bash -c "
+      apt-get update && \
+      apt-get install -y sudo && \
+      useradd -ms /bin/bash kasm_user && \
+      echo 'kasm_user:password' | chpasswd && \
+      adduser kasm_user sudo
+    "
+    echo "→ User 'kasm_user' created with password 'password'."
   else
     echo "Operation cancelled."
   fi
