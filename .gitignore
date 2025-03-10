@@ -1,0 +1,11 @@
+# Ignore logs and temporary files
+*.log
+*.tmp
+*.temp
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+
+# If you store Docker build artifacts or images locally
+docker-images/
